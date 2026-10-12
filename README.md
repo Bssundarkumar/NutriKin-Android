@@ -9,15 +9,16 @@ account's worth of data; nothing here is a separate silo.
 Be precise about this before building on top of it:
 
 - **`core/` — real, tested, verified.** Pure Kotlin, no Android dependency. Ported from the iOS
-  `ScoringEngine`/`AlcoholGuidance`/`Models`: the allergy hard block, the alcohol-for-children hard block
-  (including the brand-name backstop for products like Grey Goose that have no OFF ingredient/category
-  data — the exact bug fixed on iOS this session), and general sugar/sodium caution scoring. 8 unit tests
-  pass (`./gradlew :core:test`), including the Grey Goose regression case.
+  `ScoringEngine`/`AlcoholGuidance`/`Models`/pregnancy &amp; child-safety guidance: the allergy hard block,
+  the alcohol-for-children hard block (including the brand-name backstop for products like Grey Goose
+  that have no OFF ingredient/category data — the exact bug fixed on iOS this session), honey/juice hard
+  blocks for infants, caffeine/mercury-fish/choking-hazard/cured-meat child-safety caps, pregnancy
+  guidance, supplement caution, and sugar/sodium/saturated-fat/calorie caution scoring. 8 unit tests pass
+  (`./gradlew :core:test`), including the Grey Goose regression case.
 
-  **Not yet ported from the iOS engine** — do not treat Android scores as equivalent to iOS's until these
-  land: honey/juice hard blocks for infants, caffeine/mercury-fish/choking-hazard/cured-meat child-safety
-  caps, pregnancy guidance, supplement caution, the full `Condition`/JSON decoding for what's stored in
-  Postgres's `conditions` jsonb column (currently left as raw `JsonElement` in `MemberDto`, see below).
+  Still not ported: the exact score-weighting formula hasn't been diffed line-for-line against iOS's
+  `ScoringEngine.swift` (the rule *coverage* matches; the precise point deductions may not match exactly) —
+  worth a side-by-side audit before treating scores as numerically identical between platforms.
 
 - **`app/` — fully verified end to end.** The Android SDK + a Pixel 7/API 34 emulator (`NutriKin_Pixel`)
   are installed (`brew install --cask android-commandlinetools`, see below). Not only does
@@ -87,11 +88,12 @@ debug SHA-1 (`./gradlew signingReport` prints it).
 
 1. ~~Decode `MemberDto.conditions` into `core.Condition`~~ — done: `ConditionCodec.kt`, wire format
    verified against real Swift output (not a guess), 3 passing unit tests, verified live end to end.
-2. Finish porting `ScoringEngine`'s remaining guardrails (honey/juice/caffeine/mercury-fish/
-   choking-hazard/cured-meat/pregnancy) before this is safe to call feature-equivalent to iOS for child
-   safety.
-3. Scan flow: barcode (CameraX + ML Kit or ZXing) hitting the same Open Food Facts API the iOS app uses,
-   feeding `core.Product` and `core.ScoringEngine` (already ported and tested).
+2. ~~Finish porting `ScoringEngine`'s remaining guardrails~~ — done: honey/juice/caffeine/mercury-fish/
+   choking-hazard/cured-meat/pregnancy/supplement caution all ported (`SafetyGuidance.kt`); worth a
+   line-for-line weighting audit against iOS before treating scores as numerically identical (see above).
+3. ~~Scan flow: barcode lookup~~ — done: manual barcode entry against the same OFF endpoint, scored live;
+   verified end to end with a real barcode (Nutella). Camera scanning (CameraX + ML Kit or ZXing) and
+   plate-photo estimation are the remaining pieces of ScanView.swift not yet ported.
 4. Today dashboard: daily calories, per-member scores, the activity summary.
 5. Health Connect as the Android equivalent of HealthKit, behind the same kind of optional-linked-member
    pattern `HealthKitManager` uses on iOS.
