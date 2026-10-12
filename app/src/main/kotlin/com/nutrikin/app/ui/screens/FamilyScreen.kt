@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  * The proof-of-concept for "same backend, both platforms": whatever members exist in this household's
  * Supabase row - whether they were added from the iPhone app or here - show up here, live.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FamilyScreen(viewModel: FamilyViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()

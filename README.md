@@ -19,10 +19,12 @@ Be precise about this before building on top of it:
   caps, pregnancy guidance, supplement caution, the full `Condition`/JSON decoding for what's stored in
   Postgres's `conditions` jsonb column (currently left as raw `JsonElement` in `MemberDto`, see below).
 
-- **`app/` — written, not build-verified.** This machine has Java 17 + Gradle but no Android SDK, so the
-  Compose/Android module could not actually be compiled or run here (no `ANDROID_HOME`, no emulator). The
-  code follows standard Android/Compose/Supabase-kt patterns and should build once opened in Android
-  Studio with an SDK installed, but treat it as a first draft to sanity-check there, not as proven.
+- **`app/` — builds, installs, and runs.** The Android SDK + a Pixel 7/API 34 emulator (`NutriKin_Pixel`)
+  are now installed (`brew install --cask android-commandlinetools`, see below). `./gradlew :app:assembleDebug`
+  succeeds, the APK installs and launches on the emulator, and the Sign-In screen renders correctly. What's
+  *not* exercised yet: the actual Google OAuth round-trip (needs the redirect URI registered in the
+  Supabase dashboard and a Google Cloud OAuth client, see below) and the Family screen's live data fetch
+  (needs a signed-in session first) - the UI and build are proven, the live backend round-trip isn't yet.
 
 ## Why the backend needs nothing new
 
@@ -52,16 +54,30 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17   # or wherever your JDK 17 lives
 ./gradlew :core:test
 ```
 
-## Opening the full app
+## Running the full app
 
-Needs Android Studio (or a standalone Android SDK) that this environment doesn't have:
+The SDK and an emulator are already set up on this machine:
 
-1. Open the `NutriKin-Android/` folder in Android Studio.
-2. Let it install the Android SDK/platform if prompted.
-3. In the Supabase dashboard, add the Android OAuth redirect (`nutrikin://login-callback`) alongside
-   the existing iOS one, and register the app's SHA-1 for Google Sign-In if using Credential Manager
-   instead of the browser-based OAuth flow this scaffold uses.
-4. Run on an emulator or device.
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
+export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
+
+# Boot the emulator (first boot takes a minute or two; already-created AVD: NutriKin_Pixel)
+$ANDROID_HOME/emulator/emulator -avd NutriKin_Pixel &
+$ANDROID_HOME/platform-tools/adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done'
+
+# Build, install, launch
+./gradlew :app:assembleDebug
+$ANDROID_HOME/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
+$ANDROID_HOME/platform-tools/adb shell am start -n com.nutrikin.app/.MainActivity
+```
+
+Or open the folder in Android Studio directly - it will find the same SDK via `local.properties`.
+
+To actually complete a sign-in (not yet done - the UI renders, but no OAuth round-trip has been
+exercised): in the Supabase dashboard, add the Android OAuth redirect (`nutrikin://login-callback`)
+alongside the existing iOS one, and create a Google Cloud OAuth client for the app's package name +
+debug SHA-1 (`./gradlew signingReport` prints it).
 
 ## Honest list of what's next, roughly in priority order
 
