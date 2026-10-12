@@ -1,6 +1,8 @@
 package com.nutrikin.app.data
 
 import com.nutrikin.core.Condition
+import com.nutrikin.core.Member
+import com.nutrikin.core.Sex
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
@@ -28,6 +30,17 @@ data class MemberDto(
     @SerialName("is_managed_by_parent") val isManagedByParent: Boolean = false,
 ) {
     val decodedConditions: List<Condition> get() = ConditionCodec.decode(conditions)
+
+    /** Maps into core.Member for ScoringEngine - same fields the engine's hard blocks and caution rules
+     * actually read (allergies, age, isManagedByParent, diabetes/hypertension). */
+    fun toCoreMember(): Member = Member(
+        id = id,
+        name = name,
+        conditions = decodedConditions,
+        age = age,
+        sex = sex?.let { s -> Sex.entries.find { it.name.equals(s, ignoreCase = true) } },
+        isManagedByParent = isManagedByParent,
+    )
 }
 
 /** What's sent to insert/update a member - mirrors FamilyStore.swift's NewMember/updateMember payload. */

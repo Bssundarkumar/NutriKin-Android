@@ -46,6 +46,7 @@ data class Member(
     val age: Int? = null,
     val sex: Sex? = null,
     val isManagedByParent: Boolean = false,
+    val goals: NutritionGoals = NutritionGoals(),
 ) {
     val allergies: List<Allergen> get() = conditions.filterIsInstance<Condition.Allergy>().map { it.allergen }
     val customAllergyNames: List<String> get() = conditions.filterIsInstance<Condition.CustomAllergy>().map { it.name }
@@ -71,6 +72,7 @@ data class Nutrition(
     val satFatG: Double? = null,
     val proteinG: Double? = null,
     val basis: String = "per 100 g",
+    val transFatG: Double? = null,
 )
 
 /** Mirrors `Product` (trimmed - the full model also carries NutriScore/NOVA/traces/etc.). */
@@ -83,6 +85,7 @@ data class Product(
     val nutrition: Nutrition = Nutrition(),
     val ingredientTags: List<String> = emptyList(),
     val categoryTags: List<String> = emptyList(),
+    val tracesTags: List<String> = emptyList(),
 ) {
     val hasIngredientInfo: Boolean get() = !ingredientsText.isNullOrBlank() || ingredientTags.isNotEmpty()
     val hasAnyNutrition: Boolean
@@ -92,13 +95,15 @@ data class Product(
     /** Same text Swift's `IngredientAnalyzer`/`PregnancyGuidance.searchText` build: name + brand +
      * ingredients + tags, lower-cased, for keyword matching. */
     val searchText: String
-        get() = (listOf(name, brand ?: "", ingredientsText ?: "") + categoryTags + ingredientTags)
+        get() = (listOf(name, brand ?: "", ingredientsText ?: "") + (categoryTags + ingredientTags).map { it.replace("en:", "").replace("-", " ") })
             .joinToString(" , ").lowercase()
 
     fun contains(allergen: Allergen): Boolean =
         allergenTags.contains(allergen.offTag) || allergen.keywords.any { searchText.contains(it) }
 
-    fun containsKeyword(word: String): Boolean = searchText.contains(word.trim().lowercase())
+    fun containsKeyword(word: String): Boolean = word.isNotBlank() && searchText.contains(word.trim().lowercase())
+
+    val isSupplement: Boolean get() = categoryTags.any { it.startsWith("en:") && it.contains("supplement") }
 }
 
 enum class Verdict { OKAY, CAUTION, AVOID }
@@ -109,4 +114,12 @@ data class MemberScore(
     val verdict: Verdict,
     val reasons: List<String>,
     val blockedByAllergy: Boolean = false,
+)
+
+/** Swift Goals uses camelCase inside the goals JSON column. */
+data class NutritionGoals(
+    val dailyCalories: Double? = null,
+    val dailySugarGrams: Double? = null,
+    val dailySodiumMg: Double? = null,
+    val dailySatFatGrams: Double? = null,
 )
