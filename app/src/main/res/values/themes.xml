@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.NutriKin" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
