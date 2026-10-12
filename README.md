@@ -85,16 +85,22 @@ debug SHA-1 (`./gradlew signingReport` prints it).
 
 ## Honest list of what's next, roughly in priority order
 
-1. Finish porting `ScoringEngine`'s remaining guardrails (see above) before this is safe to call
-   feature-equivalent to iOS for child safety.
-2. Decode `MemberDto.conditions` (currently raw `JsonElement`) into `core.Condition`, matching the exact
-   JSON shape `conditions` jsonb rows use on iOS (`[{"type":"diabetes"}, {"type":"allergy","allergen":"peanuts"}]`).
+1. ~~Decode `MemberDto.conditions` into `core.Condition`~~ — done: `ConditionCodec.kt`, wire format
+   verified against real Swift output (not a guess), 3 passing unit tests, verified live end to end.
+2. Finish porting `ScoringEngine`'s remaining guardrails (honey/juice/caffeine/mercury-fish/
+   choking-hazard/cured-meat/pregnancy) before this is safe to call feature-equivalent to iOS for child
+   safety.
 3. Scan flow: barcode (CameraX + ML Kit or ZXing) hitting the same Open Food Facts API the iOS app uses,
-   feeding `core.Product`.
-4. Health Connect as the Android equivalent of HealthKit, behind the same kind of optional-linked-member
+   feeding `core.Product` and `core.ScoringEngine` (already ported and tested).
+4. Today dashboard: daily calories, per-member scores, the activity summary.
+5. Health Connect as the Android equivalent of HealthKit, behind the same kind of optional-linked-member
    pattern `HealthKitManager` uses on iOS.
-5. The on-device AI tier (`AppleAI.swift`'s Apple Intelligence path) has no Android equivalent — Android
+6. The on-device AI tier (`AppleAI.swift`'s Apple Intelligence path) has no Android equivalent — Android
    likely needs to be key-only (Gemini is the obvious first choice, same provider already supported as a
    BYOK option on iOS) or go without a free/private tier.
-6. Everything else iOS has: Groceries, Medications, Activity/workouts, Gym Buddies, the full Today
-   dashboard — same backend tables are already there, each is its own screen+ViewModel port.
+7. Everything else iOS has: Groceries, Medications, Activity/workouts, Gym Buddies — same backend tables
+   are already there, each is its own screen+ViewModel port.
+
+Still deliberately out of scope in the Member editor: custom conditions/custom allergies, daily goals,
+pregnancy, "This is me" account linking — MemberEditView.swift has all of these; this port has the fields
+ScoringEngine's hard blocks actually read.
