@@ -19,12 +19,16 @@ Be precise about this before building on top of it:
   caps, pregnancy guidance, supplement caution, the full `Condition`/JSON decoding for what's stored in
   Postgres's `conditions` jsonb column (currently left as raw `JsonElement` in `MemberDto`, see below).
 
-- **`app/` — builds, installs, and runs.** The Android SDK + a Pixel 7/API 34 emulator (`NutriKin_Pixel`)
-  are now installed (`brew install --cask android-commandlinetools`, see below). `./gradlew :app:assembleDebug`
-  succeeds, the APK installs and launches on the emulator, and the Sign-In screen renders correctly. What's
-  *not* exercised yet: the actual Google OAuth round-trip (needs the redirect URI registered in the
-  Supabase dashboard and a Google Cloud OAuth client, see below) and the Family screen's live data fetch
-  (needs a signed-in session first) - the UI and build are proven, the live backend round-trip isn't yet.
+- **`app/` — fully verified end to end.** The Android SDK + a Pixel 7/API 34 emulator (`NutriKin_Pixel`)
+  are installed (`brew install --cask android-commandlinetools`, see below). Not only does
+  `./gradlew :app:assembleDebug` succeed - the complete flow has been run live on the emulator:
+  "Continue with Google" -> real Google account picker -> Supabase token exchange -> deep link back into
+  the app -> session persists across relaunch -> the Family screen queries the shared `members` table and
+  renders correctly. Two real bugs were found and fixed this way (not from reading the code): a missing
+  `handleDeeplinks()` call that silently dropped the OAuth callback, and a missing
+  `kotlin("plugin.serialization")` plugin that broke `MemberDto` decoding. This is the same backend the
+  iOS app uses - an account only sees a household once it's actually joined it (same invite-code model as
+  iOS), so a fresh Google account correctly shows "No family members yet" rather than someone else's data.
 
 ## Why the backend needs nothing new
 
