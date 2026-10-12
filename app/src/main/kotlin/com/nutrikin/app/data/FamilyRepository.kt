@@ -44,9 +44,11 @@ class FamilyRepository {
         )
     }
 
-    suspend fun addMember(householdId: String, name: String) {
-        supabase.from("members").insert(
-            mapOf("household_id" to householdId, "name" to name),
-        )
+    suspend fun addMember(payload: NewMemberPayload) {
+        supabase.from("members").insert(payload)
+    }
+
+    suspend fun updateMember(id: String, payload: NewMemberPayload) {
+        supabase.from("members").update(payload) { filter { eq("id", id) } }
     }
 }

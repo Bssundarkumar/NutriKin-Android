@@ -1,5 +1,6 @@
 package com.nutrikin.app.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,12 +12,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.nutrikin.app.data.MemberDto
+import com.nutrikin.core.Condition
 
 /**
  * The proof-of-concept for "same backend, both platforms": whatever members exist in this household's
  * Supabase row - whether they were added from the iPhone app or here - show up here, live. Mirrors the
- * iOS onboarding (Create family / Join with invite code) for a brand-new account, then a plain add-member
- * flow once a household exists.
+ * iOS onboarding (Create family / Join with invite code) for a brand-new account, then the full
+ * MemberEditScreen (not just a name) once a household exists.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,13 +27,17 @@ fun FamilyScreen(viewModel: FamilyViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     val isWorking by viewModel.isWorking.collectAsState()
     val actionError by viewModel.actionError.collectAsState()
-    var showAddMember by remember { mutableStateOf(false) }
+    // null = not editing; MemberDto? inside the pair-less Optional-of-Optional problem is avoided by a
+    // tiny wrapper: "editing" holds Some(null) for "adding new" and Some(member) for "editing existing".
+    var editing by remember { mutableStateOf<EditTarget?>(null) }
+
+    val loaded = state as? FamilyUiState.Loaded
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Family") }) },
         floatingActionButton = {
-            if (state is FamilyUiState.Loaded) {
-                FloatingActionButton(onClick = { showAddMember = true }) {
+            if (loaded != null) {
+                FloatingActionButton(onClick = { editing = EditTarget(null) }) {
                     Icon(Icons.Default.Add, contentDescription = "Add family member")
                 }
             }
@@ -57,51 +64,61 @@ fun FamilyScreen(viewModel: FamilyViewModel = viewModel()) {
                 )
 
                 is FamilyUiState.Loaded -> {
-                    if (s.inviteCode.isNotBlank()) {
-                        Column(modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (s.inviteCode.isNotBlank()) {
                             Text(
                                 "Invite code: ${s.inviteCode}",
                                 modifier = Modifier.padding(16.dp),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
-                            MembersList(s.members, Modifier.weight(1f))
                         }
-                    } else if (s.members.isEmpty()) {
-                        Text("No family members yet.", modifier = Modifier.align(Alignment.Center))
-                    } else {
-                        MembersList(s.members, Modifier.fillMaxSize())
+                        if (s.members.isEmpty()) {
+                            Text("No family members yet.", modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp))
+                        } else {
+                            MembersList(s.members, Modifier.weight(1f)) { editing = EditTarget(it) }
+                        }
                     }
                 }
             }
         }
     }
 
-    if (showAddMember) {
-        AddMemberDialog(
-            isWorking = isWorking,
-            error = actionError,
-            onDismiss = { showAddMember = false },
-            onAdd = { name ->
-                viewModel.addMember(name)
-                showAddMember = false
-            },
+    editing?.let { target ->
+        MemberEditScreen(
+            existing = target.member,
+            householdId = loaded?.householdId ?: return@let,
+            onDone = { editing = null; viewModel.load() },
         )
     }
 }
 
+private data class EditTarget(val member: MemberDto?)
+
 @Composable
-private fun MembersList(members: List<com.nutrikin.app.data.MemberDto>, modifier: Modifier = Modifier) {
+private fun MembersList(members: List<MemberDto>, modifier: Modifier = Modifier, onSelect: (MemberDto) -> Unit) {
     LazyColumn(modifier = modifier.padding(horizontal = 16.dp)) {
         items(members) { member ->
             ListItem(
+                modifier = Modifier.clickable { onSelect(member) },
                 headlineContent = { Text(member.name) },
                 supportingContent = {
-                    Text(listOfNotNull(member.sex, member.age?.let { "$it yrs" }).joinToString(" · "))
+                    val details = listOfNotNull(member.sex, member.age?.let { "$it yrs" }).joinToString(" · ")
+                    val conditions = member.decodedConditions.joinToString(", ") { conditionLabel(it) }
+                    Text(listOf(details, conditions).filter { it.isNotBlank() }.joinToString(" — "))
                 },
             )
             HorizontalDivider()
         }
     }
+}
+
+private fun conditionLabel(c: Condition): String = when (c) {
+    Condition.Diabetes -> "Diabetes"
+    Condition.Hypertension -> "High blood pressure"
+    Condition.HighCholesterol -> "High cholesterol"
+    is Condition.Allergy -> "${c.allergen.displayName} allergy"
+    is Condition.CustomAllergy -> "${c.name} allergy"
+    is Condition.Custom -> c.name
 }
 
 @Composable
@@ -155,26 +172,4 @@ private fun NeedsHouseholdContent(
             Text(it, color = MaterialTheme.colorScheme.error)
         }
     }
-}
-
-@Composable
-private fun AddMemberDialog(isWorking: Boolean, error: String?, onDismiss: () -> Unit, onAdd: (String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add family member") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it },
-                    label = { Text("Name") }, singleLine = true,
-                )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onAdd(name) }, enabled = !isWorking && name.isNotBlank()) { Text("Add") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
 }

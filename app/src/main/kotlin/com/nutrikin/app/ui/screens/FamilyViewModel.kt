@@ -60,14 +60,6 @@ class FamilyViewModel(private val repo: FamilyRepository = FamilyRepository()) :
         applyHousehold(household)
     }
 
-    fun addMember(name: String) {
-        val current = _state.value as? FamilyUiState.Loaded ?: return
-        runAction {
-            repo.addMember(current.householdId, name)
-            load()
-        }
-    }
-
     private suspend fun applyHousehold(household: HouseholdDto) {
         _state.value = FamilyUiState.Loaded(household.id, household.inviteCode, repo.fetchMembers())
     }
